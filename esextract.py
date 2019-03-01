@@ -338,7 +338,7 @@ def dataframe_to_db(data, table_name):
     database = params["database"]
 
     #bespoke utility for retreiving obsfucated password from ./conf dir
-    password=pwdutil.decode(pwdutil.get_key(), pwdutil.get_pwd(pwdfile= pwdutil.CONFIG_LOC + ".database"))
+    password=pwdutil.decode(pwdutil.get_key(), pwdutil.get_pwd(pwdfile= pwdutil.CONFIG_LOC + ".pwd"))
 
     log("insert to database - table " + table_name)
     log("rows:" + str(len(data)))
