@@ -1,0 +1,209 @@
+2019-02-28 09:57:41  Extract Data between range 1541680814 and None for endTime
+2019-02-28 09:57:41   for filterkey:jobStatus filterval:JOB_FINISH2
+2019-02-28 09:57:41  Query ElasticSearch at localhost port 9200
+2019-02-28 09:57:41  No End-Range - scan to latest record
+2019-02-28 09:57:41  {
+                                            "query": {
+                                                "bool": {
+                                                    "must": [{
+                                                    "match": { "jobStatus": "JOB_FINISH2"}
+                                                    }
+                                                        ,
+                                                    {
+                                                    "range": { "endTime": {"gte": 1541680814
+                                                                           
+                                                                          } 
+
+                                                             }
+                                                    }]
+                                                }
+                                            }
+                                        }
+                                        
+2019-02-28 09:57:41  Index: filebeat-2018.06 Total_Records:1 Hits:0
+2019-02-28 09:57:41  No End-Range - scan to latest record
+2019-02-28 09:57:41  {
+                                            "query": {
+                                                "bool": {
+                                                    "must": [{
+                                                    "match": { "jobStatus": "JOB_FINISH2"}
+                                                    }
+                                                        ,
+                                                    {
+                                                    "range": { "endTime": {"gte": 1541680814
+                                                                           
+                                                                          } 
+
+                                                             }
+                                                    }]
+                                                }
+                                            }
+                                        }
+                                        
+2019-02-28 09:57:41  Index: filebeat-2018.09 Total_Records:4 Hits:0
+2019-02-28 09:57:41  No End-Range - scan to latest record
+2019-02-28 09:57:41  {
+                                            "query": {
+                                                "bool": {
+                                                    "must": [{
+                                                    "match": { "jobStatus": "JOB_FINISH2"}
+                                                    }
+                                                        ,
+                                                    {
+                                                    "range": { "endTime": {"gte": 1541680814
+                                                                           
+                                                                          } 
+
+                                                             }
+                                                    }]
+                                                }
+                                            }
+                                        }
+                                        
+2019-02-28 09:57:41  Index: filebeat-2018.02 Total_Records:2 Hits:0
+2019-02-28 09:57:41  No End-Range - scan to latest record
+2019-02-28 09:57:41  {
+                                            "query": {
+                                                "bool": {
+                                                    "must": [{
+                                                    "match": { "jobStatus": "JOB_FINISH2"}
+                                                    }
+                                                        ,
+                                                    {
+                                                    "range": { "endTime": {"gte": 1541680814
+                                                                           
+                                                                          } 
+
+                                                             }
+                                                    }]
+                                                }
+                                            }
+                                        }
+                                        
+2019-02-28 09:57:41  Index: filebeat-2018.05 Total_Records:1 Hits:0
+2019-02-28 09:57:41  No End-Range - scan to latest record
+2019-02-28 09:57:41  {
+                                            "query": {
+                                                "bool": {
+                                                    "must": [{
+                                                    "match": { "jobStatus": "JOB_FINISH2"}
+                                                    }
+                                                        ,
+                                                    {
+                                                    "range": { "endTime": {"gte": 1541680814
+                                                                           
+                                                                          } 
+
+                                                             }
+                                                    }]
+                                                }
+                                            }
+                                        }
+                                        
+2019-02-28 09:57:41  Index: filebeat-2018.10 Total_Records:21 Hits:0
+2019-02-28 09:57:41  No End-Range - scan to latest record
+2019-02-28 09:57:41  {
+                                            "query": {
+                                                "bool": {
+                                                    "must": [{
+                                                    "match": { "jobStatus": "JOB_FINISH2"}
+                                                    }
+                                                        ,
+                                                    {
+                                                    "range": { "endTime": {"gte": 1541680814
+                                                                           
+                                                                          } 
+
+                                                             }
+                                                    }]
+                                                }
+                                            }
+                                        }
+                                        
+2019-02-28 09:57:41  Index: filebeat-2018.11 Total_Records:85 Hits:64
+2019-02-28 09:57:41  Extracted 64 records
+2019-02-28 09:57:41  Scrolling...
+2019-02-28 09:57:41  No End-Range - scan to latest record
+2019-02-28 09:57:41  {
+                                            "query": {
+                                                "bool": {
+                                                    "must": [{
+                                                    "match": { "jobStatus": "JOB_FINISH2"}
+                                                    }
+                                                        ,
+                                                    {
+                                                    "range": { "endTime": {"gte": 1541680814
+                                                                           
+                                                                          } 
+
+                                                             }
+                                                    }]
+                                                }
+                                            }
+                                        }
+                                        
+2019-02-28 09:57:41  Index: filebeat-2018.01 Total_Records:3 Hits:0
+2019-02-28 09:57:41  No End-Range - scan to latest record
+2019-02-28 09:57:41  {
+                                            "query": {
+                                                "bool": {
+                                                    "must": [{
+                                                    "match": { "jobStatus": "JOB_FINISH2"}
+                                                    }
+                                                        ,
+                                                    {
+                                                    "range": { "endTime": {"gte": 1541680814
+                                                                           
+                                                                          } 
+
+                                                             }
+                                                    }]
+                                                }
+                                            }
+                                        }
+                                        
+2019-02-28 09:57:41  Index: filebeat-2018.08 Total_Records:2 Hits:0
+2019-02-28 09:57:41  No End-Range - scan to latest record
+2019-02-28 09:57:41  {
+                                            "query": {
+                                                "bool": {
+                                                    "must": [{
+                                                    "match": { "jobStatus": "JOB_FINISH2"}
+                                                    }
+                                                        ,
+                                                    {
+                                                    "range": { "endTime": {"gte": 1541680814
+                                                                           
+                                                                          } 
+
+                                                             }
+                                                    }]
+                                                }
+                                            }
+                                        }
+                                        
+2019-02-28 09:57:41  Index: filebeat-2018.07 Total_Records:5 Hits:0
+2019-02-28 09:57:41  Total Data Extract: 64 records
+2019-02-28 09:57:41  Building Pandas DataFrame
+2019-02-28 09:57:41  Columns:
+'jobStatus'
+'@timestamp'
+'jobID'
+'jobName'
+'userName'
+'projectName'
+'queue'
+'submitTime'
+'startTime'
+'runTime'
+'endTime'
+'ru_maxrss'
+'ru_stime'
+'ru_utime'
+'ru_nswap'
+'avgMem'
+'execHosts'
+'command'
+'outFile'
+2019-02-28 09:57:41  Dimensions: (64, 19)
+2019-02-28 09:57:41  Writing CSV data to ./range1.csv
