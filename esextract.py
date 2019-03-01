@@ -32,9 +32,9 @@ import pwdutil # simple utility for retreiving that is not stored in clear-text 
 
 
 author = "Ed.Bullen@Company85"
-CONFIG_PATH = os.getcwd() + "./conf/esextract.conf"
-LOG_PATH = os.getcwd() + "./log/esextract.log"
-CSV_PATH = os.getcwd() + "./log/esextract.csv"
+CONFIG_PATH = os.getcwd() + "/conf/esextract.conf"
+LOG_PATH = os.getcwd() + "/log/esextract.log"
+CSV_PATH = os.getcwd() + "/log/esextract.csv"
 
 SCROLL_SIZE = 10000
 class ConfigFileAccessError(Exception):
@@ -216,7 +216,7 @@ def extract_data_range(filterkey, filterval , rangefield, startrange, endrange=N
             body_string = body_string.replace("<endrange>", endrange)
 
         ##DEBUG
-        log(body_string)
+        ##log(body_string)
 
         page = es.search(index=index_name,
                             scroll = '2m',
