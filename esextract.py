@@ -167,6 +167,7 @@ def extract_data_days(filterkey, filterval, rangefield, dayshist):
 
 
 ## Query ElasticSearch for a given filter and range-field with startrange and endrange vars
+# If a database destination
 def extract_data_range(filterkey, filterval , rangefield, startrange, endrange=None ):
     params = getconfig(CONFIG_PATH)
 
@@ -216,7 +217,7 @@ def extract_data_range(filterkey, filterval , rangefield, startrange, endrange=N
             body_string = body_string.replace("<endrange>", endrange)
 
         ##DEBUG
-        log(body_string)
+        ##log(body_string)
 
         page = es.search(index=index_name,
                             scroll = '2m',
@@ -234,7 +235,7 @@ def extract_data_range(filterkey, filterval , rangefield, startrange, endrange=N
                 payload = page['hits']['hits'][i]['_source']
                 extract.append(payload)
                 if (len(extract) % 1000) == 0:
-                    log("#")
+                    print("#", end='')
             log("Extracted " + str(len(extract)) + " records")
 
             log("Scrolling...")
@@ -382,6 +383,10 @@ def dataframe_to_db(data, table_name):
     cur.close()
     conn.commit()
 
+def write_csv(data, filename):
+    log("appending data to " + filename)
+    data.to_csv(args["csvfile"], mode='a', header=False)
+
 if __name__ == '__main__':
     params = getconfig(CONFIG_PATH)
 
@@ -443,7 +448,8 @@ if __name__ == '__main__':
 
     if args["csvfile"]:
         log("Writing CSV data to " + args["csvfile"])
-        data.to_csv(args["csvfile"])
+        #data.to_csv(args["csvfile"])
+        write_csv(data, args["csvfile"])
     elif args["datatable"]:
         log("Inserting data to database table " + args["datatable"])
         dataframe_to_db(data, table_name=args["datatable"])
