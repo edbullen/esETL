@@ -32,9 +32,9 @@ import pwdutil # simple utility for retreiving that is not stored in clear-text 
 
 
 author = "Ed.Bullen@Company85"
-CONFIG_PATH = os.getcwd() + "./conf/esextract.conf"
-LOG_PATH = os.getcwd() + "./log/esextract.log"
-CSV_PATH = os.getcwd() + "./log/esextract.csv"
+CONFIG_PATH = os.getcwd() + "/conf/esextract.conf"
+LOG_PATH = os.getcwd() + "/log/esextract.log"
+CSV_PATH = os.getcwd() + "/log/esextract.csv"
 
 SCROLL_SIZE = 10000
 class ConfigFileAccessError(Exception):
@@ -339,7 +339,7 @@ def dataframe_to_db(data, table_name):
     database = params["database"]
 
     #bespoke utility for retreiving obsfucated password from ./conf dir
-    password=pwdutil.decode(pwdutil.get_key(), pwdutil.get_pwd(pwdfile= pwdutil.CONFIG_LOC + ".database"))
+    password=pwdutil.decode(pwdutil.get_key(), pwdutil.get_pwd(pwdfile= pwdutil.CONFIG_LOC + ".pwd"))
 
     log("insert to database - table " + table_name)
     log("rows:" + str(len(data)))

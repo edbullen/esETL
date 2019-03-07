@@ -44,6 +44,7 @@ def decode(key, enc):
     return "".join(dec)
 
 def store_pwd(encoded, pwdfile):
+    print("*** {} ***".format(pwdfile))
     pickle.dump( encoded, open( pwdfile, "wb" ) )
         
 def get_pwd(pwdfile):
@@ -66,7 +67,7 @@ if __name__ == '__main__':
     key = get_key()
     
     filename = args["filename"]
-    filename = CONFIG_LOC + filename
+    #filename = CONFIG_LOC + filename
     #print(filename)
     
     
