@@ -447,21 +447,21 @@ def write_csv(data, filename):
 if __name__ == '__main__':
     params = getconfig(CONFIG_PATH)
 
-    parser = argparse.ArgumentParser(description='ElasticSearch extract utility to dump to CSV or Load to Postgres. '
-                                                 '\nIf loading to Postgres, data is read from ES to local memory then inserted to remote database'
-                                                  '\nConnect configuration for ES and Postgres is configured in esextract.conf'
-                                                  '\nColumns (fields) of data are extracted from ElasticSearch based on spec. in cols.conf'
-                                                  '\nIf writing to a database table, table-cols must match the structure of cols extracted from ElasticSearch '
-                                                  '\nEXAMPLE - extract last days record (default range on @timestamp) and load to Postgres database table "my_schema.my_table":'
-                                                  '\n    $> python esextract.py -n 1 -k jobStatus -f JOB_FINISH -d my_schema.my_table'
-                                                  '\nEXAMPLE - extract a range of values based on an integer value for the endTime field and dump to CSV:'
-                                                  '\n    $> python esextract.py -r 1541680814:1542967602 -s endTime -k jobStatus -f JOB_FINISH -c ./range.csv'
-                                                  '\nEXAMPLE - extract a range of values from a start-point to the highest value (unbounded end of range):'
-                                                  '\n    $> python esextract.py -r 1541680814 -s endTime -k jobStatus -f JOB_FINISH -c ./range.csv'
-                                     , formatter_class=argparse.RawTextHelpFormatter)
+    parser = argparse.ArgumentParser(description="""** ElasticSearch extract utility to dump to CSV or Load to Postgres Database. ** 
 
-    #parser.add_argument('-f', '--file', dest="filename", default=PWD_FILE, help='Specify encoded filename',
-    #                    action='store')
+If loading to Postgres, data is read from ES to local memory then inserted to remote database
+Connect configuration for ES and Postgres is configured in esextract.conf
+Columns (fields) of data are extracted from ElasticSearch based on spec. in cols.conf
+If writing to a database table, table-cols must match the structure of cols extracted from ElasticSearch 
+
+EXAMPLE - extract last days record (default range on @timestamp) and load to Postgres database table "my_schema.my_table":
+    $> python esextract.py -n 1 -k jobStatus -f JOB_FINISH -d my_schema.my_table
+EXAMPLE - extract a range of values based on an integer value for the endTime field and dump to CSV:
+    $> python esextract.py -r 1541680814:1542967602 -s endTime -k jobStatus -f JOB_FINISH -c ./range.csv
+EXAMPLE - extract a range of values from a start-point to the highest value (unbounded end of range):
+    $> python esextract.py -r 1541680814 -s endTime -k jobStatus -f JOB_FINISH -c ./range.csv
+"""
+                                     , formatter_class=argparse.RawTextHelpFormatter)
 
     group_extract = parser.add_mutually_exclusive_group(required=True)
     group_extract.add_argument('-n', '--numdays', dest="numdays", help='Extract last n days')
@@ -472,8 +472,6 @@ if __name__ == '__main__':
 
     parser.add_argument('-k', '--key', dest="key", help='key for filtering on', action='store', required=True)
     parser.add_argument('-f', '--filter', dest="filter", help='value for filtering by', action='store',required=True)
-
-
 
     group_dest = parser.add_mutually_exclusive_group(required=True)
     group_dest.add_argument('-c', '--file', dest="csvfile", help='Save as CSV file', action='store')
@@ -505,8 +503,11 @@ if __name__ == '__main__':
 
     if args["csvfile"]:
         log("Writing CSV data to " + args["csvfile"])
-        #data.to_csv(args["csvfile"])
-        write_csv(data, args["csvfile"])
+        if fileexists(args["csvfile"]):
+            print("CSV file already exists - exiting")
+            exit(1)
+        else:
+            write_csv(data, args["csvfile"])
     elif args["datatable"]:
         log("Inserting data to database table " + args["datatable"])
         dataframe_to_db(data, table_name=args["datatable"])
