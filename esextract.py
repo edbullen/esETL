@@ -483,6 +483,11 @@ EXAMPLE - extract a range of values from a start-point to the highest value (unb
     log_rotate()
     cols_file = params['colsfile']
 
+    if args["csvfile"]:
+        if fileexists(args["csvfile"]):
+            log("CSV file already exists - exiting")
+            exit(1)
+
     if args["numdays"]:
         print("Numdays set to",args["numdays"])
         extract = extract_data_days(filterkey=args["key"], filterval=args["filter"], rangefield=args["searchkey"], dayshist=args["numdays"])
@@ -503,14 +508,11 @@ EXAMPLE - extract a range of values from a start-point to the highest value (unb
 
     if args["csvfile"]:
         log("Writing CSV data to " + args["csvfile"])
-        if fileexists(args["csvfile"]):
-            print("CSV file already exists - exiting")
-            exit(1)
-        else:
-            write_csv(data, args["csvfile"])
+        write_csv(data, args["csvfile"])
     elif args["datatable"]:
         log("Inserting data to database table " + args["datatable"])
         dataframe_to_db(data, table_name=args["datatable"])
     else:
         print("Unhandled data target - specify either -c csvfile or -d database")
         exit(1)
+    
