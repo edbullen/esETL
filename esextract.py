@@ -24,7 +24,12 @@ import re
 import datetime
 import argparse
 
+import warnings
+
 from sqlalchemy import create_engine
+
+with warnings.catch_warnings():
+    warnings.filterwarnings("ignore", category=UserWarning)
 import psycopg2
 
 import pwdutil # simple utility for retreiving that is not stored in clear-text fmt.  Requires previous setup and
