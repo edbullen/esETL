@@ -31,7 +31,7 @@ import pwdutil # simple utility for retreiving that is not stored in clear-text 
                # .key file configuration
 
 
-author = "Ed.Bullen@Company85"
+
 CONFIG_PATH = os.getcwd() + "/conf/esextract.conf"
 LOG_PATH = os.getcwd() + "/log/esextract.log"
 CSV_PATH = os.getcwd() + "/log/esextract.csv"
@@ -98,17 +98,37 @@ def log_rotate():
         except:
             pass
 
-#Convenience fn to convert a date to EPOC / UNIX-TS fmt to feed into ES query by EPOC-fmt  time range
+
 def date_to_epoc(year, month,day,hr24,min = 0,sec = 0):
+    """
+    Convenience fn to convert a date to EPOC / UNIX-TS fmt to feed into ES query by EPOC-fmt  time range
+    :param year:
+    :param month:
+    :param day:
+    :param hr24:
+    :param min:
+    :param sec:
+    :return: integer representing seconds since UNIX EPOC
+    """
     epoc_timestamp = round(datetime.datetime(year,month,day,hr24,min,sec).timestamp())
     return epoc_timestamp
 
-# Data for last n days filtered by ElasticSearch key-value
-# Pass a key to filter on and a value to filter for.
-# ** Currently have to search through all indexes looking for a "hit" - indices only store create_time, not last update
-# Also pass integer "n" days to search forward from
-# user ElasticSearch syntax for date specication
+
 def extract_data_days(filterkey, filterval, rangefield, dayshist):
+    """
+    Data for last n days filtered by ElasticSearch key-value
+    Pass a key to filter on and a value to filter for.
+    ** Currently have to search through all indexes looking for a "hit" - indices only store create_time, not last update
+    ** Planned enhancement - instead of returning the extract, either dump to CSV or write to db during loop (less mem overhead)
+    Also pass integer "n" days to search forward from
+    user ElasticSearch syntax for date specication
+
+    :param filterkey:
+    :param filterval:
+    :param rangefield:
+    :param dayshist:
+    :return: extracted list of data records (list-of-lists)
+    """
 
     dayshist_string = "now-" + str(dayshist) + "d"   # generate a string for ElasticSearch like "now-7d"
     params = getconfig(CONFIG_PATH)
@@ -166,9 +186,18 @@ def extract_data_days(filterkey, filterval, rangefield, dayshist):
     return extract
 
 
-## Query ElasticSearch for a given filter and range-field with startrange and endrange vars
-# If a database destination
 def extract_data_range(filterkey, filterval , rangefield, startrange, endrange=None ):
+    """
+    Query ElasticSearch for a given filter and range-field with startrange and endrange vars
+    Null endrange means scan to end.
+    ** Planned enhancement - instead of returning the extract, either dump to CSV or write to db during loop (less mem overhead)
+    :param filterkey:
+    :param filterval:
+    :param rangefield:
+    :param startrange:
+    :param endrange:
+    :return: extracted list of data records (list-of-lists)
+    """
     params = getconfig(CONFIG_PATH)
 
     startrange = str(startrange)
@@ -249,14 +278,23 @@ def extract_data_range(filterkey, filterval , rangefield, startrange, endrange=N
     return extract
 
 
-# Push down a sum-aggregate query to ElasticSearch
-# Aggregate hard-coded to MONTHS
-# Supply key-value filter, date-range (needs to be months or years) - EG "gte": "now-12M"
-# Supply key to sum the value of - EG: "cpuTime"
-# return list of key-val list: [ 'YYYY-MM', <int> ]
-# ** This fn only aggregates a single field; compound elasticsearch aggregate looks possible but complex syntax
-# ** Didn't bother paging results; assume aggregate won't hit 100,000 record limit
 def extract_data_agg(filterkey = 'jobStatus', filterval = 'JOB_FINISH2', monthshist = 'now-12M', aggkey = 'cpuTime', aggtype = 'sum'):
+    """
+    Push down a sum-aggregate query to ElasticSearch
+    Aggregate hard-coded to MONTHS
+    Supply key-value filter, date-range (needs to be months or years) - EG "gte": "now-12M"
+    Supply key to sum the value of - EG: "cpuTime"
+    return
+    ** This fn only aggregates a single field; compound elasticsearch aggregate is possible future enhancment
+    ** Didn't bother paging results; assume aggregate won't hit 100,000 record limit
+
+    :param filterkey:
+    :param filterval:
+    :param monthshist:
+    :param aggkey:
+    :param aggtype:
+    :return: list of key-val list: [ 'YYYY-MM', <int> ]
+    """
     params = getconfig(CONFIG_PATH)
 
     # Query Elastic Search
@@ -304,8 +342,16 @@ def extract_data_agg(filterkey = 'jobStatus', filterval = 'JOB_FINISH2', monthsh
 
     return extract
 
-#Either pass in a cols-file to open or a list of col-names
+
 def create_dataframe(extract, cols_file=None, cols=None):
+    """
+    Create a Pandas DataFrame from a data "extract" list-of-lists
+    Either pass in a cols-file to open or a list of col-names
+    :param extract:
+    :param cols_file:
+    :param cols:
+    :return: Pandas data-frame w
+    """
     log("Building Pandas DataFrame")
     try:
         if cols_file:
@@ -329,8 +375,13 @@ def create_dataframe(extract, cols_file=None, cols=None):
     log("Dimensions: " + str(dataframe.shape))
     return dataframe
 
-#pass a dataframe in an bulk-insert to Postgres DB
 def dataframe_to_db(data, table_name):
+    """
+    pass a dataframe in an bulk-insert to Postgres DB
+    :param data:
+    :param table_name:
+    :return: (None)
+    """
 
     params = getconfig(CONFIG_PATH)
     username = params["dbusername"]
