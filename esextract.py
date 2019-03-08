@@ -119,6 +119,17 @@ def date_to_epoc(year, month,day,hr24,min = 0,sec = 0):
     epoc_timestamp = round(datetime.datetime(year,month,day,hr24,min,sec).timestamp())
     return epoc_timestamp
 
+def get_cols(cols_file):
+    try:
+        if cols_file:
+            # Read in the columns to parse from the colsfile
+            f = open(cols_file, 'r')
+            cols = f.readlines()
+            f.close()
+            cols = [x.strip() for x in cols]
+    except Exception as e:
+        raise DataFrameColsSpecification(e)
+    return cols
 
 def extract_data_days(filterkey, filterval, rangefield, dayshist):
     """
@@ -192,22 +203,33 @@ def extract_data_days(filterkey, filterval, rangefield, dayshist):
     return extract
 
 
-def extract_data_range(filterkey, filterval , rangefield, startrange, endrange=None ):
+def extract_data_range(filterkey, filterval , rangefield, startrange, endrange=None, cols_file=None, csvfile=None, database=None ):
     """
     Query ElasticSearch for a given filter and range-field with startrange and endrange vars
     Null endrange means scan to end.
-    ** Planned enhancement - instead of returning the extract, either dump to CSV or write to db during loop (less mem overhead)
+    Either dump to CSV or write to db during loop through of batches of results from ES
     :param filterkey:
     :param filterval:
     :param rangefield:
     :param startrange:
     :param endrange:
-    :return: extracted list of data records (list-of-lists)
+    :param cols_file: file that contains list of cols to extract and load
+    :param csvfile:  path to file
+    :param database:  my_schema.my_table
+    :return: number of records "n" processes
     """
     params = getconfig(CONFIG_PATH)
 
     startrange = str(startrange)
     endrange = str(endrange)
+
+    #Checks
+    if database is None and csvfile is None:
+        raise AttributeError('must specify csvfile or database')
+    if database and csvfile:
+        raise AttributeError('cannot specify csvfile AND database')
+    if cols_file is None:
+        raise AttributeError('No Cols File specified')
 
     # Query Elastic Search
     log("Extract Data between range " + startrange + " and " + endrange + " for " + rangefield)
@@ -217,6 +239,7 @@ def extract_data_range(filterkey, filterval , rangefield, startrange, endrange=N
 
     #Final extracted list of results
     extract = []
+    n = 0  # number of records processed
     for index_name in es.indices.get('*'):
         # scroll through results to handle > 10,000 records
 
@@ -251,9 +274,6 @@ def extract_data_range(filterkey, filterval , rangefield, startrange, endrange=N
         else:
             body_string = body_string.replace("<endrange>", endrange)
 
-        ##DEBUG
-        ##log(body_string)
-
         page = es.search(index=index_name,
                             scroll = '2m',
                             size=SCROLL_SIZE,
@@ -262,6 +282,7 @@ def extract_data_range(filterkey, filterval , rangefield, startrange, endrange=N
         sid = page['_scroll_id']
         scroll_size = page['hits']['total']
         log("Index: " + index_name + " Total_Records:" + str(es.cat.indices(index_name).split()[6]) + " Hits:" + str(scroll_size))
+
 
         # Start scrolling
         while (scroll_size > 0):
@@ -273,15 +294,32 @@ def extract_data_range(filterkey, filterval , rangefield, startrange, endrange=N
                     print("#", end='')
             log("Extracted " + str(len(extract)) + " records")
 
+            # instead of appending to extract, write to database or CSV
+            # create a Pandas Data frame
+            if database:
+                #log("Inserting data to database table " + database)
+                data = create_dataframe(extract, cols_file)
+                dataframe_to_db(data, table_name=database)
+            elif csvfile:
+                #log("Writing CSV data to " + csvfile)
+                data = create_dataframe(extract, cols_file)
+                write_csv(data, csvfile)
+            else:
+                raise Exception
+
+            # reset the extract list
+            n = n + len(extract)
+            extract = []
             log("Scrolling...")
             page = es.scroll(scroll_id=sid, scroll='2m')
             # Update the scroll ID
             sid = page['_scroll_id']
             # Get the number of results that we returned in the last scroll
             scroll_size = len(page['hits']['hits'])
-    log("Total Data Extract: " + str(len(extract)) + " records" )
+    log("Total Data Extract and Load: " + str(n) + " records" )
 
-    return extract
+    return n
+    #return extract
 
 
 def extract_data_agg(filterkey = 'jobStatus', filterval = 'JOB_FINISH2', monthshist = 'now-12M', aggkey = 'cpuTime', aggtype = 'sum'):
@@ -358,7 +396,11 @@ def create_dataframe(extract, cols_file=None, cols=None):
     :param cols:
     :return: Pandas data-frame w
     """
-    log("Building Pandas DataFrame")
+    log("   Building Pandas DataFrame")
+
+    cols = get_cols(cols_file)
+
+    """
     try:
         if cols_file:
             # Read in the columns to parse from the colsfile
@@ -370,15 +412,15 @@ def create_dataframe(extract, cols_file=None, cols=None):
             cols = cols
     except Exception as e:
         raise DataFrameColsSpecification(e)
-
+    """
     dataframe = pd.DataFrame(extract, columns=cols)
 
     cols_list = re.sub( r' +', '' , (str(dataframe.columns).replace(',','\n').replace('\n\n','\n') )   )
     cols_list = re.sub( r'\(\[', '\n', cols_list)
     cols_list = re.sub( r']\n', '', cols_list).replace("dtype='object')", "").replace("Index", "Columns:")
-    log(cols_list)
+    #log(cols_list)
 
-    log("Dimensions: " + str(dataframe.shape))
+    log("   Dimensions: " + str(dataframe.shape))
     return dataframe
 
 def dataframe_to_db(data, table_name):
@@ -398,8 +440,8 @@ def dataframe_to_db(data, table_name):
     #bespoke utility for retreiving obsfucated password from ./conf dir
     password=pwdutil.decode(pwdutil.get_key(), pwdutil.get_pwd(pwdfile= pwdutil.CONFIG_LOC + ".pwd"))
 
-    log("insert to database - table " + table_name)
-    log("rows:" + str(len(data)))
+    log("   Insert to database - table " + table_name)
+    log("   Rows:" + str(len(data)))
     engine = create_engine(
         'postgresql+psycopg2://' + username + ':' + password + '@' + host + ':' + port + '/' + database)
 
@@ -423,7 +465,7 @@ def dataframe_to_db(data, table_name):
     try:
         psycopg2.extras.execute_batch(cur, insert_stmt, data.values)
         conn.commit()
-        log("Commited")
+        log("   Commited")
     except psycopg2.Error as e:
         diag = e.diag
         print("printing error diags (everything defined in psycopg package):")
@@ -441,7 +483,7 @@ def dataframe_to_db(data, table_name):
     conn.commit()
 
 def write_csv(data, filename):
-    log("appending data to " + filename)
+    log("   Appending data to " + filename)
     data.to_csv(args["csvfile"], mode='a', header=False)
 
 if __name__ == '__main__':
@@ -500,12 +542,21 @@ EXAMPLE - extract a range of values from a start-point to the highest value (unb
         else:
             endrange = None
 
-        extract = extract_data_range(filterkey=args["key"], filterval=args["filter"], rangefield=args["searchkey"], startrange=startrange, endrange=endrange)
-        data = create_dataframe(extract, cols_file)
+        n = extract_data_range(filterkey=args["key"]
+                               , filterval=args["filter"]
+                               , rangefield=args["searchkey"]
+                               , startrange=startrange
+                               , endrange=endrange
+                               , cols_file = cols_file
+                               , csvfile = args["csvfile"]
+                               , database = args["datatable"]
+                               )
+        #data = create_dataframe(extract, cols_file)
     else:
         print("Unhandled mode - can only extract based on -n <numdays> or -r <startrange[:endrange]>")
         exit(1)
 
+    """
     if args["csvfile"]:
         log("Writing CSV data to " + args["csvfile"])
         write_csv(data, args["csvfile"])
@@ -515,4 +566,4 @@ EXAMPLE - extract a range of values from a start-point to the highest value (unb
     else:
         print("Unhandled data target - specify either -c csvfile or -d database")
         exit(1)
-    
+    """
