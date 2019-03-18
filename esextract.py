@@ -468,19 +468,22 @@ def dataframe_to_db(data, table_name):
         log("   Commited")
     except psycopg2.Error as e:
         diag = e.diag
-        print("printing error diags (everything defined in psycopg package):")
-        for attr in [
-            'column_name', 'constraint_name', 'context', 'datatype_name',
-            'internal_position', 'internal_query', 'message_detail',
-            'message_hint', 'message_primary', 'schema_name', 'severity',
-            'source_file', 'source_function', 'source_line', 'sqlstate',
-            'statement_position', 'table_name', ]:
-            v = getattr(diag, attr)
-            print(attr, ":",  v)
+        log("Postgres Database Error:")
+        log(str(e.pgerror))
         raise
 
     cur.close()
     conn.commit()
+
+def maxval_from_db(filterkey, filterval , rangefield, table_name):
+    """
+    :param filterkey: the key to filter results on
+    :param filterval: the value to filter by
+    :param rangefield: the field to select range on - MAX
+    :param table_name: the schema.table_name specifier
+    :return: MAX val for rangefield - STRING value (we don't know what type this is)
+    """
+    pass
 
 def write_csv(data, filename):
     log("   Appending data to " + filename)
