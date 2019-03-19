@@ -4,13 +4,9 @@ ElasticSearch extract utility.
 
 Load elasticsearch index host and port from config ini file
 
-Extract - query some cols (based on a config file) and create a pandas data-frame
+Extract - query some cols (based on a config file) and create a pandas data-frame to either dump to CSV or load to database
 
-Extract by "last n days" - extract_data_days
- or range between two vals - extract_data_range
-
-Filter on a given key-val.
-
+Extract a range of data between two vals based on a range-key and also filter by (another) key - value pair
 
 """
 
@@ -24,19 +20,10 @@ import re
 import datetime
 import argparse
 
-import warnings
 
-from sqlalchemy import create_engine
+import pwdutil  # utility for retreiving  password that is not stored in clear-text fmt.  Requires previous setup and .key file configuration
 
-with warnings.catch_warnings():
-    warnings.filterwarnings("ignore", category=UserWarning)
-    import psycopg2
-import psycopg2
-
-import pwdutil  # simple utility for retreiving that is not stored in clear-text fmt.  Requires previous setup and
-
-# .key file configuration
-
+import postgres_db # Postgres DB functions
 
 CONFIG_PATH = os.getcwd() + "/conf/esextract.conf"
 KEY_PATH = os.getcwd() + "/conf" # just specify the directory, not filename
@@ -45,26 +32,20 @@ CSV_PATH = os.getcwd() + "/log/esextract.csv"
 
 SCROLL_SIZE = 10000
 
-
 class ConfigFileAccessError(Exception):
     pass
-
 
 class ConfigFileParseError(Exception):
     pass
 
-
 class DataFrameColsSpecification(Exception):
     pass
-
 
 def fileexists(fname):
     return (os.path.isfile(fname))
 
-
 def gettimestamp():
     return str(datetime.datetime.now())[0:19] + " "
-
 
 def getconfig(CONFIG_PATH):
     """
@@ -142,79 +123,6 @@ def get_cols(cols_file):
     except Exception as e:
         raise DataFrameColsSpecification(e)
     return cols
-
-
-def extract_data_days(filterkey, filterval, rangefield, dayshist):
-    """
-    Data for last n days filtered by ElasticSearch key-value
-    Pass a key to filter on and a value to filter for.
-    ** Currently have to search through all indexes looking for a "hit" - indices only store create_time, not last update
-    ** Planned enhancement - instead of returning the extract, either dump to CSV or write to db during loop (less mem overhead)
-    Also pass integer "n" days to search forward from
-    user ElasticSearch syntax for date specication
-
-    :param filterkey:
-    :param filterval:
-    :param rangefield:
-    :param dayshist:
-    :return: extracted list of data records (list-of-lists)
-    """
-
-    dayshist_string = "now-" + str(dayshist) + "d"  # generate a string for ElasticSearch like "now-7d"
-    params = getconfig(CONFIG_PATH)
-
-    # Query Elastic Search
-    log("Extract Data for last n Days: " + str(dayshist) + " filterkey:" + filterkey + " filterval:" + filterval)
-    log("Query ElasticSearch at " + str(params['elasticsearchhost']) + " port " + str(params['elasticsearchport']))
-    es = Elasticsearch([{u'host': params['elasticsearchhost'], u'port': params['elasticsearchport']}])
-
-    # Final extracted list of results
-    extract = []
-    for index_name in es.indices.get('*'):
-        # scroll through results to handle > 10,000 records
-        # helpful example here: https://gist.github.com/drorata/146ce50807d16fd4a6aa
-
-        page = es.search(index=index_name,
-                         scroll='2m',
-                         size=SCROLL_SIZE,
-                         body={
-                             "query": {
-                                 "bool": {
-                                     "must": [{
-                                         "match": {filterkey: filterval}
-                                     }
-                                         ,
-                                         {
-                                             "range": {"@timestamp": {"gte": dayshist_string}}
-                                         }]
-                                 }
-                             }
-                         }
-                         )
-
-        sid = page['_scroll_id']
-        scroll_size = page['hits']['total']
-        log("Index: " + index_name + " Total_Records:" + str(es.cat.indices(index_name).split()[6]) + " Hits:" + str(
-            scroll_size))
-
-        # Start scrolling
-        while (scroll_size > 0):
-            # Extract page data to extract list (append)
-            log("Getting data...")
-            for i in range(0, len(page['hits']['hits'])):
-                payload = page['hits']['hits'][i]['_source']
-                extract.append(payload)
-            log("Extracted " + str(len(extract)) + " records")
-
-            log("Scrolling...")
-            page = es.scroll(scroll_id=sid, scroll='2m')
-            # Update the scroll ID
-            sid = page['_scroll_id']
-            # Get the number of results that we returned in the last scroll
-            scroll_size = len(page['hits']['hits'])
-    log("Total Data Extract: " + str(len(extract)) + " records")
-
-    return extract
 
 
 def extract_data_range(inputsource, filterkey, filterval, rangefield, startrange, endrange=None, cols_file=None,
@@ -434,7 +342,7 @@ def create_dataframe(extract, cols_file=None, cols=None):
 # def dataframe_to_db(data, table_name):
 def dataframe_to_db(data, database_conf):
     """
-    pass a dataframe in an bulk-insert to Postgres DB
+    pass a dataframe in for a bulk-insert to database
     :param data:  Pandas data-frame
     :param database_conf: Config Identifier that maps to database, host, port, username, tablename
     :return: (None)
@@ -454,18 +362,13 @@ def dataframe_to_db(data, database_conf):
     log("   Insert to database - table " + table_name)
     log("   Rows:" + str(len(data)))
 
-    ## Database Connect ##
-    try:
-        engine = create_engine(
-            'postgresql+psycopg2://' + username + ':' + password + '@' + host + ':' + port + '/' + database)
-        conn = engine.raw_connection()
+    # Database Connect
+    if params["type"] == "postgres":
+        conn = postgres_db.connection(username, password, host, port, database)
+    else:
+        log("Database Connect to " + params["type"] + " not supported")
 
-    except Exception as e:
-        log("Postgres Database Connect Error:")
-        log(str(e))
-        raise
-    ########################
-
+    # Format data to insert
     df_columns = list(data)
     # Strip any "@' symbols - not supported in Postgres
     df_columns = [l.replace("@", "") for l in df_columns]
@@ -479,21 +382,13 @@ def dataframe_to_db(data, database_conf):
     insert_stmt = "INSERT INTO {} ({}) {}".format(table_name, columns, values)
     # print(insert_stmt)
 
-    ## Database Execute ##
-    try:
-        cur = conn.cursor()
-        psycopg2.extras.execute_batch(cur, insert_stmt, data.values)
-        conn.commit()
-        log("   Commited")
-    except Exception as e:
-        #diag = e.diag
-        log("Postgres Database Error:")
-        log(str(e.pgerror))
-        raise
+    # Database Execute Insert an Numpy ndarray of Values = pandas df.values
+    if params["type"] == "postgres":
+        postgres_db.insert_statement(conn, insert_stmt, data.values)
+    else:
+        log("Database Connect to " + params["type"] + " not supported")
 
-    cur.close()
-    ########################
-
+"""    
 def maxval_from_db(filterkey, filterval, rangefield, table_name):
     """
     :param filterkey: the key to filter results on
@@ -519,7 +414,7 @@ def maxval_from_db(filterkey, filterval, rangefield, table_name):
     conn.commit()
 
     return maxval
-
+"""
 
 def write_csv(data, filename):
     log("   Appending data to " + filename)
