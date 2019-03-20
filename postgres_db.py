@@ -62,6 +62,32 @@ def insert_statement(conn, insert_stmt, values_ndarray):
         raise
 
     cur.close()
+    conn.close()
 
     return complete
 
+def select_statement(conn, select_stmt,logPrintFlag):
+    """
+
+    :param conn:
+    :param select_stmt:
+    :return: list-of-lists
+    """
+
+    try:
+        cur = conn.cursor()
+        esextract.log("    Running Query...", logPrintFlag)
+        cur.execute(select_stmt)
+        records = cur.fetchall()
+    except Exception as e:
+        esextract.log("Postgres Database Query Error:")
+        esextract.log(str(e))
+        raise
+
+    cur.close()
+    conn.close()
+
+    esextract.log("    Complete", logPrintFlag)
+    for row in records:
+        result = row
+    return(result)
