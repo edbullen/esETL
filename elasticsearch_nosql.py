@@ -8,7 +8,7 @@ import esextract
 SCROLL_SIZE = 10000
 
 def extract_data_range(params, inputsource, filterkey, filterval, rangefield, startrange, endrange=None, cols_file=None,
-                       csvfile=None, database_conf=None):
+                       csvfile=None, database_conf=None, equality=False):
     """
     Query ElasticSearch for a given filter and range-field with startrange and endrange vars
     Null endrange means scan to end.
@@ -23,6 +23,7 @@ def extract_data_range(params, inputsource, filterkey, filterval, rangefield, st
     :param cols_file: file that contains list of cols to extract and load
     :param csvfile:  path to file
     :param database_conf:  Config Identifier for Database
+    :param equality: flag to switch on gte / lte equality range
     :return: number of records "n" processes
     """
     #sections = esextract.getconfig(CONFIG_PATH)
@@ -32,8 +33,8 @@ def extract_data_range(params, inputsource, filterkey, filterval, rangefield, st
     endrange = str(endrange)
 
     # Checks
-    if database_conf is None and csvfile is None:
-        raise AttributeError('must specify csvfile or database')
+    #if database_conf is None and csvfile is None:
+    #    raise AttributeError('must specify csvfile or database')
     if database_conf and csvfile:
         raise AttributeError('cannot specify csvfile AND database')
     if cols_file is None:
@@ -48,7 +49,14 @@ def extract_data_range(params, inputsource, filterkey, filterval, rangefield, st
 
     extract = [] # extracted list of results
     n = 0  # number of records processed
-    for index_name in es.indices.get('*'):
+
+    try:
+        indexmask = params["indexmask"]
+    except:
+        indexmask ='*'
+
+    #for index_name in es.indices.get('*'):
+    for index_name in es.indices.get(indexmask):
         # scroll through results to handle > 10,000 records
         body_string = """{
                             "query": {
@@ -62,8 +70,8 @@ def extract_data_range(params, inputsource, filterkey, filterval, rangefield, st
                                     """
 
         body_string = body_string + """
-                                    "range": { "<rangefield>": {"gte": "<startrange>"
-                                                           ,"lte": "<endrange>"
+                                    "range": { "<rangefield>": {"gt": "<startrange>"
+                                                           ,"lt": "<endrange>"
                                                           } 
 
                                              }
@@ -78,6 +86,11 @@ def extract_data_range(params, inputsource, filterkey, filterval, rangefield, st
                             }
                          }
                       """
+        # Change to gte / lte equality range search
+        if equality:
+            body_string = body_string.replace("\"gt\"", "\"gte\"" )
+            body_string = body_string.replace("\"lt\"", "\"lte\"")
+
         # replace the tags in the template ElasticSearch query with filter vals
         if filterkey:
             body_string = body_string.replace("<filterkey>", filterkey)
@@ -89,12 +102,12 @@ def extract_data_range(params, inputsource, filterkey, filterval, rangefield, st
         # if no end-range is specified, remove the "lte" part of range search - search to end
         if endrange == "None":
             esextract.log("No End-Range - scan to latest record")
-            body_string = body_string.replace(",\"lte\": <endrange>", "")
+            body_string = body_string.replace(",\"lte\": \"<endrange>\"", "")
         else:
             body_string = body_string.replace("<endrange>", endrange)
 
-        #log("DEBUG: dumping ES search-body string")
-        #log(body_string)
+        ##esextract.log("DEBUG: dumping ES search-body string")
+        ##esextract.log(body_string)
 
         page = es.search(index=index_name,
                          scroll='2m',
@@ -118,16 +131,15 @@ def extract_data_range(params, inputsource, filterkey, filterval, rangefield, st
             esextract.log("Extracted " + str(len(extract)) + " records")
 
             # write to database or CSV - create a Pandas Data frame and then write it out to DB/csv
+            data = esextract.create_dataframe(extract, cols_file)
             if database_conf:
                 #log("Inserting data to database table at " + database_conf)
-                data = esextract.create_dataframe(extract, cols_file)
                 esextract.dataframe_to_db(data, database_conf)
             elif csvfile:
                 # log("Writing CSV data to " + csvfile)
-                data = esextract.create_dataframe(extract, cols_file)
                 esextract.write_csv(data, csvfile)
             else:
-                raise Exception
+                esextract.write_stdout(data)
 
             # reset the extract list
             n = n + len(extract)

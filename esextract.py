@@ -124,7 +124,7 @@ def get_cols(cols_file):
     return cols
 
 def extract_data_range(inputsource, filterkey, filterval, rangefield, startrange, endrange=None, cols_file=None,
-                       csvfile=None, database_conf=None):
+                       csvfile=None, database_conf=None, equality = False):
     """
     function to call the correct NoSQL data-store (ES / Splunk etc)
     :param inputsource:
@@ -133,7 +133,7 @@ def extract_data_range(inputsource, filterkey, filterval, rangefield, startrange
     :param rangefield:
     :param startrange:
     :param endrange:
-    :param cols_file:
+    :param cols_file: Specify the location of a file containing list of cols to extract
     :param csvfile:
     :param database_conf:
     :return:
@@ -152,7 +152,8 @@ def extract_data_range(inputsource, filterkey, filterval, rangefield, startrange
                                                , endrange
                                                , cols_file
                                                , csvfile
-                                               , database_conf)
+                                               , database_conf
+                                               , equality)
     else:
         raise DataExtractSourceClass("unhandled class of extract type")
 
@@ -290,6 +291,18 @@ def write_csv(data, filename):
     log("   Appending data to " + filename)
     data.to_csv(filename, mode='a', header=False)
 
+def write_stdout(data):
+    cols = list(data)
+    n = len(cols)
+    log("   Printing to terminal: ")
+    for idx,row in data.iterrows():
+        str_out = ""
+        for i in range(0, n):
+            #print(row[i],", ", end="")
+            str_out = str_out + str(row[i]) + ","
+        str_out = str_out[:-1] #remove last comma
+        print(str_out)
+
 
 if __name__ == '__main__':
     params = getconfig(CONFIG_PATH)
@@ -350,6 +363,11 @@ EXAMPLE - dump the config
                             , help='Save as CSV file')
     group_dest.add_argument('-d', '--database_config', dest="database_conf", action='store', default = None
                             , help='database destination as defined in config file')
+    group_dest.add_argument('-p', '--print_output', dest="print", action='store_true', default=None
+                            , help='Print output')
+
+    parser.add_argument('-e', '--equality', dest="equality", action='store_true', default=False
+                            , help='range equality (greater-than-Equal and less-then-Equal')
 
     args = vars(parser.parse_args())
 
@@ -375,6 +393,8 @@ EXAMPLE - dump the config
         startrange = args["range"].split("#")[0]
         if len(args["range"].split("#")) == 2:
             endrange = args["range"].split("#")[1]
+        else:
+            endrange = None
 
         n = extract_data_range(  inputsource=inputsource
                                , filterkey=args["key"]
@@ -385,6 +405,7 @@ EXAMPLE - dump the config
                                , cols_file=cols_file
                                , csvfile=args["csvfile"]
                                , database_conf=args["database_conf"]
+                               , equality=args["equality"]
                                )
 
     elif args["max_val"]:
