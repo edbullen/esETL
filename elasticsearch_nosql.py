@@ -103,6 +103,7 @@ def extract_data_range(params, inputsource, filterkey, filterval, rangefield, st
         if endrange == "None":
             esextract.log("No End-Range - scan to latest record")
             body_string = body_string.replace(",\"lte\": \"<endrange>\"", "")
+            body_string = body_string.replace(",\"lt\": \"<endrange>\"", "")
         else:
             body_string = body_string.replace("<endrange>", endrange)
 
