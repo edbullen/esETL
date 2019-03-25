@@ -55,6 +55,11 @@ def extract_data_range(params, inputsource, filterkey, filterval, rangefield, st
     except:
         indexmask ='*'
 
+    try:
+        scroll_size = params["querylimit"]
+    except:
+        scroll_size = SCROLL_SIZE
+
     #for index_name in es.indices.get('*'):
     for index_name in es.indices.get(indexmask):
         # scroll through results to handle > 10,000 records
