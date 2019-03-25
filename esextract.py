@@ -181,7 +181,7 @@ def create_dataframe(extract, cols_file=None, cols=None, drop_duplicates=True):
     cols_list = re.sub(r']\n', '', cols_list).replace("dtype='object')", "").replace("Index", "Columns:")
 
     if drop_duplicates:
-        dataframe = dataframe.drop_duplicates()
+        dataframe = dataframe.iloc[dataframe.astype(str).drop_duplicates().index]
         n_no_dup = len(dataframe)
 
     if n != n_no_dup:
