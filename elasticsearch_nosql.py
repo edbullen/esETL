@@ -5,7 +5,7 @@ Elasticsearch extract functions
 from elasticsearch import Elasticsearch
 import esextract
 
-SCROLL_SIZE = 10000
+QUERY_SIZE = 10000
 
 def extract_data_range(params, inputsource, filterkey, filterval, rangefield, startrange, endrange=None, cols_file=None,
                        csvfile=None, database_conf=None, equality=False):
@@ -56,9 +56,9 @@ def extract_data_range(params, inputsource, filterkey, filterval, rangefield, st
         indexmask ='*'
 
     try:
-        scroll_size = params["querylimit"]
+        query_size = params["querylimit"]
     except:
-        scroll_size = SCROLL_SIZE
+        query_size = QUERY_SIZE
 
     #for index_name in es.indices.get('*'):
     for index_name in es.indices.get(indexmask):
@@ -116,9 +116,9 @@ def extract_data_range(params, inputsource, filterkey, filterval, rangefield, st
         ##esextract.log(body_string)
 
         page = es.search(index=index_name,
-                         scroll='2m',
-                         size=SCROLL_SIZE,
-                         body=body_string)
+                         scroll = '2m',
+                         size = query_size,
+                         body = body_string)
 
         sid = page['_scroll_id']
         scroll_size = page['hits']['total']
