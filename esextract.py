@@ -160,7 +160,7 @@ def extract_data_range(inputsource, filterkey, filterval, rangefield, startrange
     return n
 
 
-def create_dataframe(extract, cols_file=None, cols=None):
+def create_dataframe(extract, cols_file=None, cols=None, drop_duplicates=True):
     """
     Create a Pandas DataFrame from a data "extract" list-of-lists
     Either pass in a cols-file to open or a list of col-names
@@ -174,11 +174,18 @@ def create_dataframe(extract, cols_file=None, cols=None):
     cols = get_cols(cols_file)
 
     dataframe = pd.DataFrame(extract, columns=cols)
+    n = len(dataframe)
 
     cols_list = re.sub(r' +', '', (str(dataframe.columns).replace(',', '\n').replace('\n\n', '\n')))
     cols_list = re.sub(r'\(\[', '\n', cols_list)
     cols_list = re.sub(r']\n', '', cols_list).replace("dtype='object')", "").replace("Index", "Columns:")
 
+    if drop_duplicates:
+        dataframe = dataframe.drop_duplicates()
+        n_no_dup = len(dataframe)
+
+    if n != n_no_dup:
+        log("WARNING droppped duplicates" + str(n - n_no_dup) )
     log("   Dimensions: " + str(dataframe.shape))
     return dataframe
 
