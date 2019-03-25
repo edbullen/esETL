@@ -185,7 +185,9 @@ def create_dataframe(extract, cols_file=None, cols=None, drop_duplicates=True):
         n_no_dup = len(dataframe)
 
     if n != n_no_dup:
-        log("WARNING droppped duplicates" + str(n - n_no_dup) )
+        log("WARNING droppped duplicates: " + str(n - n_no_dup) )
+        log("    Dataframe Head: " + str(dataframe.head(1)))
+        log("    Dataframe End : " + str(dataframe.tail(1)))
     log("   Dimensions: " + str(dataframe.shape))
     return dataframe
 
