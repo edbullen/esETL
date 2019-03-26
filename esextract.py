@@ -22,7 +22,8 @@ import postgres_db # Postgres DB functions
 
 CONFIG_PATH = os.getcwd() + "/conf/esextract.conf"
 KEY_PATH = os.getcwd() + "/conf" # just specify the directory, not filename
-LOG_PATH = os.getcwd() + "/log/esextract.log"
+LOG_ROOT = os.getcwd() + "/log/"
+LOG_PATH = LOG_ROOT + "esextract.log"
 CSV_PATH = os.getcwd() + "/log/esextract.csv"
 
 class ConfigFileAccessError(Exception):
@@ -39,8 +40,11 @@ class ConfigNotFound(Exception):
 def fileexists(fname):
     return (os.path.isfile(fname))
 
-def gettimestamp():
-    return str(datetime.datetime.now())[0:19] + " "
+def gettimestamp(simple=False):
+    if simple:
+        return str(datetime.datetime.now().strftime("%Y%m%d_%H%M"))
+    else:
+        return str(datetime.datetime.now())[0:19] + " "
 
 def getconfig(CONFIG_PATH):
     """
@@ -182,6 +186,11 @@ def create_dataframe(extract, cols_file=None, cols=None, drop_duplicates=True):
 
     if drop_duplicates:
         dataframe = dataframe.iloc[dataframe.astype(str).drop_duplicates().index]
+        duplicates = dataframe.duplicated()
+        duplicate_count = len(duplicates[duplicates].index)
+        log("    " + str(duplicate_count) + " duplicates found in dataframe")
+        if duplicate_count > 0 :
+            log(duplicates[duplicates].index)
         n_no_dup = len(dataframe)
 
     if n != n_no_dup:
@@ -238,10 +247,17 @@ def dataframe_to_db(data, database_conf):
     # print(insert_stmt)
 
     # Database Execute Insert an Numpy ndarray of Values = pandas df.values
-    if params["type"] == "postgres":
-        postgres_db.insert_statement(conn, insert_stmt, data.values)
-    else:
-        log("Database Connect to " + params["type"] + " not supported")
+    try:
+        if params["type"] == "postgres":
+            postgres_db.insert_statement(conn, insert_stmt, data.values)
+        else:
+            log("Database Connect to " + params["type"] + " not supported")
+    except:
+            timestamp = gettimestamp(simple=True)
+            log("Dumping data-frame that failed to load to CSV file")
+            fname = LOG_ROOT + "failed_" + timestamp + ".csv"
+            write_csv(data,fname)
+            raise
 
 
 def maxval_from_db(search_key, database_conf, filterkey, filterval, logPrintFlag=False ):
