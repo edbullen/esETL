@@ -186,7 +186,8 @@ def create_dataframe(extract, cols_file=None, cols=None, drop_duplicates=True):
 
     if drop_duplicates:
         dataframe = dataframe.iloc[dataframe.astype(str).drop_duplicates().index]
-        duplicates = dataframe.duplicated()
+        #duplicates = dataframe.duplicated()
+        duplicates = dataframe.astype(str).duplicated()
         duplicate_count = len(duplicates[duplicates].index)
         log("    " + str(duplicate_count) + " duplicates found in dataframe")
         if duplicate_count > 0 :
