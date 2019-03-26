@@ -189,8 +189,8 @@ def create_dataframe(extract, cols_file=None, cols=None, drop_duplicates=True):
         #duplicates = dataframe.duplicated()
         duplicates = dataframe.astype(str).duplicated()
         duplicate_count = len(duplicates[duplicates].index)
-        log("    " + str(duplicate_count) + " duplicates found in dataframe")
-        if duplicate_count > 0 :
+        if duplicate_count > 0
+            log("   " + str(duplicate_count) + " duplicates found in dataframe")
             log(duplicates[duplicates].index)
         n_no_dup = len(dataframe)
 
