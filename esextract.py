@@ -175,6 +175,7 @@ def create_dataframe(extract, cols_file=None, cols=None, drop_duplicates=True):
     cols_list = re.sub(r']\n', '', cols_list).replace("dtype='object')", "").replace("Index", "Columns:")
 
     if drop_duplicates:
+        original = dataframe
         dataframe = dataframe.iloc[dataframe.astype(str).drop_duplicates().index]
         #duplicates = dataframe.duplicated()
         duplicates = dataframe.astype(str).duplicated()
@@ -186,8 +187,14 @@ def create_dataframe(extract, cols_file=None, cols=None, drop_duplicates=True):
 
     if n != n_no_dup:
         log("WARNING droppped duplicates: " + str(n - n_no_dup) )
-        log("    Dataframe Head: " + str(dataframe.head(1)))
-        log("    Dataframe End : " + str(dataframe.tail(1)))
+        timestamp = gettimestamp(simple=True)
+        log("Dumping original dataframe pre-dedupe")
+        fname = LOG_ROOT + "original_" + timestamp + ".csv"
+        write_csv(original, fname)
+        log("Dumping dataframe de-duped")
+        fname = LOG_ROOT + "de_duped_" + timestamp + ".csv"
+        write_csv(dataframe, fname)
+
     log("   Dimensions: " + str(dataframe.shape))
     return dataframe
 
