@@ -147,17 +147,7 @@ def extract_data_range(inputsource, filterkey, filterval, rangefield, startrange
     params = sections[inputsource]
 
     if params["class"] == "elasticsearch" :
-        n = elasticsearch_nosql.extract_data_range(params
-                                               , inputsource
-                                               , filterkey
-                                               , filterval
-                                               , rangefield
-                                               , startrange
-                                               , endrange
-                                               , cols_file
-                                               , csvfile
-                                               , database_conf
-                                               , equality)
+        n = elasticsearch_nosql.extract_data_range(params, inputsource, filterkey, filterval, rangefield, startrange, endrange, cols_file, csvfile, database_conf, equality)
     else:
         raise DataExtractSourceClass("unhandled class of extract type")
 

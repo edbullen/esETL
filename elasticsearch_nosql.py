@@ -88,7 +88,10 @@ def extract_data_range(params, inputsource, filterkey, filterval, rangefield, st
                                     """
         body_string = body_string + """
                                 }
-                            }
+                            },
+                            "sort": {
+                                    "@timestamp": "asc"
+                                    }
                          }
                       """
         # Change to gte / lte equality range search
