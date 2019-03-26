@@ -189,10 +189,10 @@ def create_dataframe(extract, cols_file=None, cols=None, drop_duplicates=True):
         log("WARNING droppped duplicates: " + str(n - n_no_dup) )
         timestamp = gettimestamp(simple=True)
         log("Dumping original dataframe pre-dedupe")
-        fname = LOG_ROOT + "original_" + timestamp + ".csv"
+        fname = LOG_ROOT + timestamp + "original_" + ".csv"
         write_csv(original, fname)
         log("Dumping dataframe de-duped")
-        fname = LOG_ROOT + "de_duped_" + timestamp + ".csv"
+        fname = LOG_ROOT + timestamp + "de_duped_" + ".csv"
         write_csv(dataframe, fname)
 
     log("   Dimensions: " + str(dataframe.shape))
