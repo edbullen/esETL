@@ -32,10 +32,10 @@ else:
 if os.environ.get('LOG_ROOT'):
     LOG_ROOT = os.environ.get('LOG_ROOT')
 else:
-    LOG_ROOT = os.getcwd() + "/log/"
+    LOG_ROOT = os.getcwd() + "/log"
 
-LOG_PATH = LOG_ROOT + "esextract.log"
-CSV_PATH = LOG_ROOT + "esextract.csv"
+LOG_PATH = LOG_ROOT + "/esextract.log"
+CSV_PATH = LOG_ROOT + "/esextract.csv"
 
 class ConfigFileAccessError(Exception):
     pass
@@ -195,10 +195,10 @@ def create_dataframe(extract, cols_file=None, cols=None, drop_duplicates=True):
         log("WARNING droppped duplicates: " + str(n - n_no_dup) )
         timestamp = gettimestamp(simple=True)
         log("Dumping original dataframe pre-dedupe")
-        fname = LOG_ROOT + timestamp + "original_" + ".csv"
+        fname = LOG_ROOT + "/" + timestamp + "original_" + ".csv"
         write_csv(original, fname)
         log("Dumping dataframe de-duped")
-        fname = LOG_ROOT + timestamp + "de_duped_" + ".csv"
+        fname = LOG_ROOT + "/" + timestamp + "de_duped_" + ".csv"
         write_csv(dataframe, fname)
 
     log("   Dimensions: " + str(dataframe.shape))
@@ -259,7 +259,7 @@ def dataframe_to_db(data, database_conf):
     except:
             timestamp = gettimestamp(simple=True)
             log("Dumping data-frame that failed to load to CSV file")
-            fname = LOG_ROOT + "failed_" + timestamp + ".csv"
+            fname = LOG_ROOT + "/" + "failed_" + timestamp + ".csv"
             write_csv(data,fname)
             raise
 
