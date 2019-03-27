@@ -20,13 +20,25 @@ import pwdutil  # utility for retreiving  password that is not stored in clear-t
 import elasticsearch_nosql # Elastics search data access functions
 import postgres_db # Postgres DB functions
 
-CONFIG_PATH = os.getcwd() + "/conf/esextract.conf"
-KEY_PATH = os.getcwd() + "/conf" # just specify the directory, not filename
-LOG_ROOT = os.getcwd() + "/log/"
+if os.environ.get('CONFIG_PATH'):
+    CONFIG_PATH = os.environ.get('CONFIG_PATH')
+else:
+    CONFIG_PATH = os.getcwd() + "/conf/esextract.conf"
+if os.environ.get('KEY_PATH'):
+    KEY_PATH = os.environ.get('KEY_PATH')
+else:
+    KEY_PATH = os.getcwd() + "/conf" 
+
+if os.environ.get('LOG_ROOT'):
+    LOG_ROOT = os.environ.get('LOG_ROOT')
+else:
+    LOG_ROOT = os.getcwd() + "/log/"
+
 LOG_PATH = LOG_ROOT + "esextract.log"
-CSV_PATH = os.getcwd() + "/log/esextract.csv"
+CSV_PATH = LOG_ROOT + "esextract.csv"
 
 class ConfigFileAccessError(Exception):
+    print("** Need to specify full path to the config file, including the name of the file")
     pass
 class ConfigFileParseError(Exception):
     pass
@@ -345,13 +357,13 @@ Columns (fields) of data are extracted from ElasticSearch based on spec. in cols
 If writing to a database table, table-cols must match the structure of cols extracted from ElasticSearch 
 
 EXAMPLE - extract a range of values based on an integer value for the endTime field and dump to CSV:
-    $> python esextract.py -i MyElasticSearch -r 1541680814#1542967602 -s endTime  -c ./range.csv
+    $> python esextract.py -i MyElasticSearch  -s endTime -r 1541680814#1542967602 -c ./range.csv
 EXAMPLE - extract a range of values based for the endTime field and filter by jobStatus=JOB_FINISH and dump to CSV:
-        $> python esextract.py -i MyElasticSearch -r 1541680814#1542967602 -s endTime -k jobStatus -f JOB_FINISH -c ./range.csv
+        $> python esextract.py -i MyElasticSearch -s endTime -r 1541680814#1542967602 -k jobStatus -f JOB_FINISH -c ./range.csv
 EXAMPLE - extract a range of values from a start-point to the highest value (unbounded end of range):
-    $> python esextract.py -i MyElasticSearch -r 1541680814 -s endTime -k jobStatus -f JOB_FINISH -c ./range.csv
+    $> python esextract.py -i MyElasticSearch -s endTime -r 1541680814 -k jobStatus -f JOB_FINISH -c ./range.csv
 EXAMPLE - extract a range of timestamp values
-    $> python esextract.py -i AnOtherEsConfig -r 2019-01-31T14:02:39.000Z#2019-02-01T14:02:39.000Z -k jobStatus -f JOB_FINISH2 -c ../test.csv
+    $> python esextract.py -i AnOtherEsConfig -s @timestamp -r 2019-01-31T14:02:39.000Z#2019-02-01T14:02:39.000Z -k jobStatus -f JOB_FINISH2 -c ../test.csv
 EXAMPLE - dump the config
     $> python esextract.py dumpparams
 
@@ -362,14 +374,14 @@ EXAMPLE - dump the config
     #group_extract.add_argument('-n', '--numdays', dest="numdays", help='Extract last n days')
     parser.add_argument('-i', '--input', dest="inputsource"
                         , help='Input Source for Data - as defined in config file.')
+    parser.add_argument('-s', '--searchkey', dest="searchkey", default="@timestamp", action='store', required=True
+                        , help='key for range to search on or find MAX of - defaults to @timestamp.  This is different to optional filterclause.')
 
     group_range = parser.add_mutually_exclusive_group(required=True)
     group_range.add_argument('-r', '--range', dest="range", help='range extract <FROM>#<TO> - use # as separator')
     group_range.add_argument('-m', '--max_val', dest="max_val", action='store_true'
                             , help='get maximum value for the [ -s ] searchkey in the DESTINATION data store')
 
-    parser.add_argument('-s', '--searchkey', dest="searchkey", default="@timestamp", action='store', required=True
-                        , help='key for range to search on or find MAX of - defaults to @timestamp.  This is different to optional filterclause.')
 
     parser.add_argument('-k', '--key', dest="key", action='store', default=None
                         , help='optional key for filtering on')
@@ -385,7 +397,7 @@ EXAMPLE - dump the config
                             , help='Print output')
 
     parser.add_argument('-e', '--equality', dest="equality", action='store_true', default=False
-                            , help='range equality (greater-than-Equal and less-then-Equal')
+                            , help='range equality (greater-than-Equal and less-then-Equal)')
 
     args = vars(parser.parse_args())
 
