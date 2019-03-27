@@ -38,7 +38,6 @@ LOG_PATH = LOG_ROOT + "esextract.log"
 CSV_PATH = LOG_ROOT + "esextract.csv"
 
 class ConfigFileAccessError(Exception):
-    print("** Need to specify full path to the config file, including the name of the file")
     pass
 class ConfigFileParseError(Exception):
     pass
