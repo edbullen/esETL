@@ -8,8 +8,10 @@ Extract a range of data between two vals based on a range-key and also filter by
 """
 
 import pandas as pd
+import io
 import os
 import sys
+import math
 import configparser
 import time
 import re
@@ -206,7 +208,7 @@ def create_dataframe(extract, cols_file=None, cols=None, drop_duplicates=True):
 
 
 # def dataframe_to_db(data, table_name):
-def dataframe_to_db(data, database_conf):
+def dataframe_to_db(data, database_conf, batch_size=None):
     """
     pass a dataframe in for a bulk-insert to database
     :param data:  Pandas data-frame
@@ -250,19 +252,48 @@ def dataframe_to_db(data, database_conf):
     insert_stmt = "INSERT INTO {} ({}) {}".format(table_name, columns, values)
     # print(insert_stmt)
 
-    # Database Execute Insert an Numpy ndarray of Values = pandas df.values
-    try:
-        if params["type"] == "postgres":
-            postgres_db.insert_statement(conn, insert_stmt, data.values)
-        else:
-            log("Database Connect to " + params["type"] + " not supported")
-    except:
-            timestamp = gettimestamp(simple=True)
-            log("Dumping data-frame that failed to load to CSV file")
-            fname = LOG_ROOT + "/" + "failed_" + timestamp + ".csv"
-            write_csv(data,fname)
-            raise
+    #Logic in loop to break up bulk of dataframe into sets of iterations
+    n = len(data)
+    if batch_size:
+        iterations = math.ceil(len(data)/batch_size)
+        iter_mod = n % batch_size  # modulus to factor in uneven tail of items at end of loop
+    else:
+        iterations = 1
+        iter_mod = 0
+        batch_size = n
 
+    log("   Batch Size:       " + str(batch_size))
+    log("   Batch Iterations: " + str(iterations))
+
+    for i in range(0, iterations):
+
+        if i == iterations - 1:
+            #final pass, need to factor in the mod left-over for uneven final batch
+            slice_start = (i * batch_size)
+            slice_end = (i * batch_size + batch_size - iter_mod)
+            data_slice = data[slice_start : slice_end]
+        else:
+            #print(i * batch_size, " ", i * batch_size + batch_size)
+            slice_start = (i * batch_size)
+            slice_end = (i * batch_size + batch_size)
+
+            data_slice = data[slice_start : slice_end ]
+
+        # Database Execute Insert an Numpy ndarray of Values = pandas df.values
+        try:
+            if params["type"] == "postgres":
+                #postgres_db.insert_statement(conn, insert_stmt, data.values)
+                postgres_db.insert_statement(conn, insert_stmt, data_slice.values, slice_start, slice_end)
+            else:
+                log("Database Connect to " + params["type"] + " not supported")
+        except:
+                timestamp = gettimestamp(simple=True)
+                log("Failed Insert: " + insert_stmt)
+                log("Dumping data-frame that failed to load to CSV file")
+                fname = LOG_ROOT + "/" + "failed_" + timestamp + ".csv"
+                write_csv(data_slice,fname)
+                raise
+    conn.close()
 
 def maxval_from_db(search_key, database_conf, filterkey, filterval, logPrintFlag=False ):
     """
@@ -317,8 +348,41 @@ def maxval_from_db(search_key, database_conf, filterkey, filterval, logPrintFlag
 
 
 def write_csv(data, filename):
-    log("   Appending data to " + filename)
+    log("   Appending data to file " + filename)
     data.to_csv(filename, mode='a', header=False)
+
+def read_csv(filename, drop_duplicates=True):
+    log("Loading data from file (first line is database cols spec) " + filename)
+    #redirect STD-ERR and STD-OUT to catch warnings / errors from reading in CSV
+    real_stdout = sys.stdout
+    real_stderr = sys.stderr
+    fake_stdout = io.StringIO()
+    fake_stderr = io.StringIO()
+    data = None
+    try:
+        sys.stdout = fake_stdout
+        sys.stderr = fake_stderr
+        data = pd.read_csv(filename, sep=',', error_bad_lines=False, warn_bad_lines=True, skipinitialspace=True)
+
+
+    finally:
+        sys.stdout = real_stdout
+        sys.stderr = real_stderr
+        message = fake_stdout.getvalue()
+        message = message + fake_stderr.getvalue()
+
+        fake_stdout.close()
+        fake_stderr.close()
+
+        if drop_duplicates:
+            log("   Dropping duplicates")
+            data = data.iloc[data.astype(str).drop_duplicates().index]
+
+        message = message[2:] # remove b' prefix - seems to be left over from bytes convert to string
+        message = message[:-2] # remove final '
+        message_list = message.split('\\n')
+        return data, message_list
+
 
 def write_stdout(data):
     cols = list(data)
@@ -335,6 +399,7 @@ def write_stdout(data):
 
 if __name__ == '__main__':
     params = getconfig(CONFIG_PATH)
+
 
     if len(sys.argv) > 1:
         if sys.argv[1] == "dumpparams":
@@ -371,12 +436,17 @@ EXAMPLE - dump the config
 
     #group_extract = parser.add_mutually_exclusive_group(required=True)
     #group_extract.add_argument('-n', '--numdays', dest="numdays", help='Extract last n days')
-    parser.add_argument('-i', '--input', dest="inputsource"
+    group_input = parser.add_mutually_exclusive_group(required=False)
+    group_input.add_argument('-i', '--input', dest="inputsource"
                         , help='Input Source for Data - as defined in config file.')
-    parser.add_argument('-s', '--searchkey', dest="searchkey", default="@timestamp", action='store', required=True
-                        , help='key for range to search on or find MAX of - defaults to @timestamp.  This is different to optional filterclause.')
+    group_input.add_argument('-cin', '--csvfile_in', dest="csvfile_in", action='store'
+                        , help = 'Input data from CSV file - * first line specifies the column-namrs to load to database*')
 
-    group_range = parser.add_mutually_exclusive_group(required=True)
+    parser.add_argument('-s', '--searchkey', dest="searchkey", default="@timestamp", action='store', required=False
+                        , help='key for range to search on or find MAX of - defaults to @timestamp.')
+
+
+    group_range = parser.add_mutually_exclusive_group(required=False)
     group_range.add_argument('-r', '--range', dest="range", help='range extract <FROM>#<TO> - use # as separator')
     group_range.add_argument('-m', '--max_val', dest="max_val", action='store_true'
                             , help='get maximum value for the [ -s ] searchkey in the DESTINATION data store')
@@ -388,7 +458,7 @@ EXAMPLE - dump the config
                         , help='value for filtering by')
 
     group_dest = parser.add_mutually_exclusive_group(required=True)
-    group_dest.add_argument('-c', '--file', dest="csvfile", action='store', default = None
+    group_dest.add_argument('-cout', '--file', dest="csvfile", action='store', default = None
                             , help='Save as CSV file')
     group_dest.add_argument('-d', '--database_config', dest="database_conf", action='store', default = None
                             , help='database destination as defined in config file')
@@ -398,16 +468,28 @@ EXAMPLE - dump the config
     parser.add_argument('-e', '--equality', dest="equality", action='store_true', default=False
                             , help='range equality (greater-than-Equal and less-then-Equal)')
 
+    parser.add_argument('-b', '--batch_size', dest="batch_size", action='store', default=None
+                        , help='specify an integer batch-size number - number of records to insert to database per batch iteration')
+
     args = vars(parser.parse_args())
 
-    if not args["inputsource"] and args["max_val"] is False:
-        log("Input Source (-i) not specified - this must map to a configuration in the .conf file.  Exiting")
+    if not (args["inputsource"] or args["csvfile_in"]) and args["max_val"] is False:
+        log("Input Source -i or -cin not specified.  Exiting")
         exit(1)
-    else:
+    elif args["inputsource"]:
         inputsource = args["inputsource"]
+    elif args["csvfile_in"]:
+        csvfile_in = args["csvfile_in"]
 
     log_rotate()  # Archive the old logfile
-    if args["max_val"] is False:
+
+    if args["batch_size"]:
+        batch_size = int(args["batch_size"])
+    else:
+        batch_size = None
+
+    #need cols_file for data-load, for CSV import get them from the header
+    if (args["max_val"] is False and csvfile_in is False):
         cols_file = params[inputsource]["colsfile"]  # Cols spec to extract data for (and load cols spec for DB / csv)
 
     if args["csvfile"]:
@@ -442,6 +524,11 @@ EXAMPLE - dump the config
         maxval = maxval_from_db(args["searchkey"], args["database_conf"], args["key"], args["filter"], logPrintFlag=False )
         log(maxval, False)
         print(maxval)
+    elif args["csvfile_in"]:
+        data, message_list = read_csv(csvfile_in)
+        for message in message_list:
+            log("   " + message)
+        dataframe_to_db(data, args["database_conf"], batch_size=batch_size)
     else:
         print("Unhandled mode selected")
         exit(1)

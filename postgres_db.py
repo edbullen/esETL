@@ -35,7 +35,7 @@ def connection(username, password, host, port, database):
     return conn
 
 
-def insert_statement(conn, insert_stmt, values_ndarray):
+def insert_statement(conn, insert_stmt, values_ndarray, slice_start=None, slice_end=None):
     """
     Insert to database
     :param cur: cursor
@@ -44,6 +44,11 @@ def insert_statement(conn, insert_stmt, values_ndarray):
     :return:
     """
     complete = False
+
+    if slice_start:
+        progress_message = str(slice_start) + ":" + str(slice_end)
+    else:
+        progress_message = ""
 
     if not isinstance(values_ndarray, numpy.ndarray ):
         esextract.log("invalid values array data-type passed")
@@ -54,7 +59,7 @@ def insert_statement(conn, insert_stmt, values_ndarray):
         cur = conn.cursor()
         psycopg2.extras.execute_batch(cur, insert_stmt, values_ndarray)
         conn.commit()
-        esextract.log("   Commited")
+        esextract.log("   Commited " + progress_message)
         complete = True
     except Exception as e:
         esextract.log("Postgres Database Insert Error:")
@@ -62,7 +67,7 @@ def insert_statement(conn, insert_stmt, values_ndarray):
         raise
 
     cur.close()
-    conn.close()
+
 
     return complete
 
