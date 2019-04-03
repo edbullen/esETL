@@ -489,7 +489,7 @@ EXAMPLE - dump the config
         batch_size = None
 
     #need cols_file for data-load, for CSV import get them from the header
-    if (args["max_val"] is False and csvfile_in is False):
+    if (args["max_val"] is False and args["csvfile_in"] is None):
         cols_file = params[inputsource]["colsfile"]  # Cols spec to extract data for (and load cols spec for DB / csv)
 
     if args["csvfile"]:
