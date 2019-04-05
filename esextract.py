@@ -6,7 +6,7 @@ Query some cols (based on a config file) from noSQL datasource and create a pand
 Extract a range of data between two vals based on a range-key and also filter by (another) key - value pair
 
 """
-
+# Python package imports
 import pandas as pd
 import io
 import os
@@ -17,7 +17,7 @@ import time
 import re
 import datetime
 import argparse
-
+# Modules
 import pwdutil  # utility for retreiving  password that is not stored in clear-text fmt.  Requires previous setup and .key file configuration
 import elasticsearch_nosql # Elastics search data access functions
 import postgres_db # Postgres DB functions
@@ -206,15 +206,8 @@ def create_dataframe(extract, cols_file=None, cols=None, drop_duplicates=True):
     log("   Dimensions: " + str(dataframe.shape))
     return dataframe
 
-
-# def dataframe_to_db(data, table_name):
-def dataframe_to_db(data, database_conf, batch_size=None):
-    """
-    pass a dataframe in for a bulk-insert to database
-    :param data:  Pandas data-frame
-    :param database_conf: Config Identifier that maps to database, host, port, username, tablename
-    :return: (None)
-    """
+def get_database_conn(database_conf):
+    conn = None
     try:
         sections = getconfig(CONFIG_PATH)
         params = sections[database_conf]
@@ -224,19 +217,35 @@ def dataframe_to_db(data, database_conf, batch_size=None):
     host = params["dbhost"]
     port = params["dbport"]
     database = params["database"]
+    type = params["type"]
     table_name = params["table"]
 
     # utility for retreiving obsfucated password from ./conf dir
     password = pwdutil.decode(pwdutil.get_key(KEY_PATH + "/.key_" + database_conf), pwdutil.get_pwd(pwdfile=KEY_PATH + "/.pwd_" + database_conf))
-
-    log("   Insert to database - table " + table_name)
-    log("   Rows:" + str(len(data)))
 
     # Database Connect
     if params["type"] == "postgres":
         conn = postgres_db.connection(username, password, host, port, database)
     else:
         log("Database Connect to " + params["type"] + " not supported")
+
+    return conn, type, table_name
+
+
+# def dataframe_to_db(data, table_name):
+def dataframe_to_db(data, database_conf, batch_size=None):
+    """
+    pass a dataframe in for a bulk-insert to database
+    :param data:  Pandas data-frame
+    :param database_conf: Config Identifier that maps to database, host, port, username, tablename
+    :return: (None)
+    """
+
+    # Get Database Connection, Database Type, Database Table Name
+    conn, type, table_name = get_database_conn(database_conf)
+
+    log("   Insert to database - table " + table_name)
+    log("   Rows:" + str(len(data)))
 
     # Format data to insert
     df_columns = list(data)
@@ -247,10 +256,8 @@ def dataframe_to_db(data, database_conf, batch_size=None):
 
     # create VALUES('%s', '%s",...) one '%s' per column
     values = "VALUES({})".format(",".join(["%s" for _ in df_columns]))
-
     # create INSERT INTO table (columns) VALUES('%s',...)
     insert_stmt = "INSERT INTO {} ({}) {}".format(table_name, columns, values)
-    # print(insert_stmt)
 
     #Logic in loop to break up bulk of dataframe into sets of iterations
     n = len(data)
@@ -281,11 +288,11 @@ def dataframe_to_db(data, database_conf, batch_size=None):
 
         # Database Execute Insert an Numpy ndarray of Values = pandas df.values
         try:
-            if params["type"] == "postgres":
+            if type == "postgres":
                 #postgres_db.insert_statement(conn, insert_stmt, data.values)
                 postgres_db.insert_statement(conn, insert_stmt, data_slice.values, slice_start, slice_end)
             else:
-                log("Database Connect to " + params["type"] + " not supported")
+                log("Database Connect to " + type + " not supported")
         except:
                 timestamp = gettimestamp(simple=True)
                 log("Failed Insert: " + insert_stmt)
@@ -294,6 +301,50 @@ def dataframe_to_db(data, database_conf, batch_size=None):
                 write_csv(data_slice,fname)
                 raise
     conn.close()
+
+def merge_on_db(merge_target, database_conf, logPrintFlag=False):
+    """
+    Merge the data in "database_conf" INTO the merge_target using
+       INSERT INTO merge_target SELECT * FROM database_conf EXCEPT SELECT * from merge_target
+     - a different syntax is needed for Oracle (... MINUS SELECT * from merge_target)
+    Very simple approach is used that is not necessarily the most efficient for large indexed tables.
+    :param merge_target:
+    :param database_conf:
+    :return:
+    """
+    log("Merge " + database_conf + " into " + merge_target)
+    # Get Database Connection, Database Type, Database Table Name
+    conn, type, table_name = get_database_conn(database_conf)
+
+    merge_stmt = "INSERT INTO {} SELECT * FROM {} EXCEPT SELECT * FROM {}".format(merge_target,table_name,merge_target)
+
+    # Database Execute Query-Insert
+    if type == "postgres":
+        rowcount = postgres_db.insert_merge_statement(conn, merge_stmt, logPrintFlag)
+        log("    " + str(rowcount) + " Rows")
+    else:
+        log("Database Connect to " + type + " not supported")
+
+def delete_on_db(database_conf, logPrintFlag=False):
+    """
+
+    :param database_conf: delete data from the table associated with this configuration
+    :param logPrintFlag:
+    :return:
+    """
+
+    # Get Database Connection, Database Type, Database Table Name
+    conn, type, table_name = get_database_conn(database_conf)
+    log("Delete data from table at " + database_conf + " table name: " + table_name)
+
+    delete_stmt = "DELETE FROM {}".format(table_name)
+    # Database Execute Query-Insert
+    if type == "postgres":
+        rowcount = postgres_db.delete_statement(conn, delete_stmt, logPrintFlag)
+        log("    " + str(rowcount) + " Rows")
+    else:
+        log("Database Connect to " + type + " not supported")
+
 
 def maxval_from_db(search_key, database_conf, filterkey, filterval, logPrintFlag=False ):
     """
@@ -307,27 +358,8 @@ def maxval_from_db(search_key, database_conf, filterkey, filterval, logPrintFlag
 
     log("Get max-val for " + search_key, logPrintFlag)
 
-    try:
-        sections = getconfig(CONFIG_PATH)
-        params = sections[database_conf]
-    except:
-        raise ConfigNotFound(database_conf)
-
-    username = params["dbusername"]
-    host = params["dbhost"]
-    port = params["dbport"]
-    database = params["database"]
-    table_name = params["table"]
-
-    # utility for retreiving obsfucated password from ./conf dir
-    password = pwdutil.decode(pwdutil.get_key(KEY_PATH + "/.key_" + database_conf),
-                              pwdutil.get_pwd(pwdfile=KEY_PATH + "/.pwd_" + database_conf))
-
-    # Database Connect
-    if params["type"] == "postgres":
-        conn = postgres_db.connection(username, password, host, port, database)
-    else:
-        log("Database Connect to " + params["type"] + " not supported")
+    # Get Database Connection, Database Type, Database Table Name
+    conn, type, table_name = get_database_conn(database_conf)
 
     # Database Query
     if filterkey:
@@ -336,10 +368,10 @@ def maxval_from_db(search_key, database_conf, filterkey, filterval, logPrintFlag
         select_stmt = "SELECT MAX( {} ) FROM {} ".format(search_key, table_name)
 
     # Database Execute Query
-    if params["type"] == "postgres":
+    if type == "postgres":
         records = postgres_db.select_statement(conn, select_stmt, logPrintFlag)
     else:
-        log("Database Connect to " + params["type"] + " not supported")
+        log("Database Connect to " + type + " not supported")
 
     if len(records) > 1:
         raise ValueError('Unexpected max-val, more than 1 record')
@@ -348,10 +380,19 @@ def maxval_from_db(search_key, database_conf, filterkey, filterval, logPrintFlag
 
 
 def write_csv(data, filename):
+    """
+    Write out a CSV file.  Don't include header as may be incrementally building up a CSV
+    Write-Append to existing file
+    """
     log("   Appending data to file " + filename)
     data.to_csv(filename, mode='a', header=False)
 
 def read_csv(filename, drop_duplicates=True):
+    """
+    read in a CSV and output a Pandas data-frame.
+    Warnings and Errors from Pandas passed back in messages_list
+    Attempt to remove duplicates by default.
+    """
     log("Loading data from file (first line is database cols spec) " + filename)
     #redirect STD-ERR and STD-OUT to catch warnings / errors from reading in CSV
     real_stdout = sys.stdout
@@ -440,7 +481,11 @@ EXAMPLE - dump the config
     group_input.add_argument('-i', '--input', dest="inputsource"
                         , help='Input Source for Data - as defined in config file.')
     group_input.add_argument('-cin', '--csvfile_in', dest="csvfile_in", action='store'
-                        , help = 'Input data from CSV file - * first line specifies the column-namrs to load to database*')
+                        , help = 'Input data from CSV file - * first line of CSV specifies the column-names to load to database*')
+    group_input.add_argument('-merge', '--merge', dest="merge_target", action='store'
+                             , help='Merge data from -d "database_config_dest" to "merge_target" database table in same database ')
+    group_input.add_argument('-delete', '--delete', dest="delete_target", action='store_true'
+                             , help='Delete all data from -d "database_config_dest" ')
 
     parser.add_argument('-s', '--searchkey', dest="searchkey", default="@timestamp", action='store', required=False
                         , help='key for range to search on or find MAX of - defaults to @timestamp.')
@@ -473,7 +518,7 @@ EXAMPLE - dump the config
 
     args = vars(parser.parse_args())
 
-    if not (args["inputsource"] or args["csvfile_in"]) and args["max_val"] is False:
+    if not (args["inputsource"] or args["csvfile_in"] or args["merge_target"] or args["delete_target"]) and args["max_val"] is False:
         log("Input Source -i or -cin not specified.  Exiting")
         exit(1)
     elif args["inputsource"]:
@@ -489,7 +534,7 @@ EXAMPLE - dump the config
         batch_size = None
 
     #need cols_file for data-load, for CSV import get them from the header
-    if (args["max_val"] is False and args["csvfile_in"] is None):
+    if (args["max_val"] is False and args["csvfile_in"] is None and args["merge_target"] is None and args["delete_target"] is False):
         cols_file = params[inputsource]["colsfile"]  # Cols spec to extract data for (and load cols spec for DB / csv)
 
     if args["csvfile"]:
@@ -529,6 +574,13 @@ EXAMPLE - dump the config
         for message in message_list:
             log("   " + message)
         dataframe_to_db(data, args["database_conf"], batch_size=batch_size)
+    elif args["merge_target"]:
+        #print("DEBUG Selected Merge Operation", args["merge_target"], " on ", args["database_conf"])
+        merge_on_db(args["merge_target"], args["database_conf"], logPrintFlag=True)
+    elif args["delete_target"]:
+        #print("DEBUG Selected Delete Operation", args["database_conf"])
+        delete_on_db(args["database_conf"], logPrintFlag=True)
+
     else:
         print("Unhandled mode selected")
         exit(1)

@@ -20,7 +20,6 @@ def connection(username, password, host, port, database):
     Connect to a Postgres Database and pass back a connection
     """
 
-    ## Database Connect ##
     try:
         engine = create_engine(
             'postgresql+psycopg2://' + username + ':' + password + '@' + host + ':' + port + '/' + database)
@@ -30,7 +29,6 @@ def connection(username, password, host, port, database):
         esextract.log("Postgres Database Connect Error:")
         esextract.log(str(e))
         raise
-    ########################
 
     return conn
 
@@ -65,7 +63,6 @@ def insert_statement(conn, insert_stmt, values_ndarray, slice_start=None, slice_
         esextract.log("Postgres Database Insert Error:")
         esextract.log(str(e))
         raise
-
     cur.close()
 
 
@@ -89,10 +86,47 @@ def select_statement(conn, select_stmt,logPrintFlag):
         esextract.log(str(e))
         raise
 
-    cur.close()
-    conn.close()
-
     esextract.log("    Complete", logPrintFlag)
     for row in records:
         result = row
+    cur.close()
     return(result)
+
+def insert_merge_statement(conn, merge_stmt, logPrintFlag):
+    """
+    Simple merge operation.  JUst insert from source into target table for all rows not in target
+    :param conn:
+    :param merge_stmt:
+    :param logPrintFlag:
+    :return: rowcount
+    """
+    rowcount = 0
+    try:
+        cur = conn.cursor()
+        esextract.log("    Running Insert-Merge...", logPrintFlag)
+        esextract.log("    " + merge_stmt, logPrintFlag)
+        cur.execute(merge_stmt)
+        rowcount = cur.rowcount
+        conn.commit()
+    except Exception as e:
+        esextract.log("Postgres Database Error:")
+        esextract.log(str(e))
+        raise
+    cur.close()
+    return rowcount
+
+def delete_statement(conn, delete_stmt, logPrintFlag):
+    rowcount = 0
+    try:
+        cur = conn.cursor()
+        #esextract.log("    Executing Delete", logPrintFlag)
+        esextract.log("    " + delete_stmt, logPrintFlag)
+        cur.execute(delete_stmt)
+        rowcount = cur.rowcount
+        conn.commit()
+    except Exception as e:
+        esextract.log("Postgres Database Error:")
+        esextract.log(str(e))
+        raise
+    cur.close()
+    return rowcount
