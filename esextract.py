@@ -36,7 +36,11 @@ if os.environ.get('LOG_ROOT'):
 else:
     LOG_ROOT = os.getcwd() + "/log"
 
-LOG_PATH = LOG_ROOT + "/esextract.log"
+if os.environ.get('LOG_PATH'):
+    LOG_ROOT = os.environ.get('LOG_PATH')
+else:
+    LOG_PATH = LOG_ROOT + "/esextract_" + datetime.datetime.now().strftime("%Y%m%d") + ".log"
+
 CSV_PATH = LOG_ROOT + "/esextract.csv"
 
 class ConfigFileAccessError(Exception):
@@ -526,7 +530,7 @@ EXAMPLE - dump the config
     elif args["csvfile_in"]:
         csvfile_in = args["csvfile_in"]
 
-    log_rotate()  # Archive the old logfile
+    #log_rotate()  # Archive the old logfile
 
     if args["batch_size"]:
         batch_size = int(args["batch_size"])
@@ -565,7 +569,8 @@ EXAMPLE - dump the config
                                )
 
     elif args["max_val"]:
-        #print("running a select statement to select max val for" + args["searchkey"])
+        print("running a select statement to select max val for" + args["searchkey"])
+        print(args["database_conf"])
         maxval = maxval_from_db(args["searchkey"], args["database_conf"], args["key"], args["filter"], logPrintFlag=False )
         log(maxval, False)
         print(maxval)
