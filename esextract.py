@@ -37,7 +37,7 @@ else:
     LOG_ROOT = os.getcwd() + "/log"
 
 if os.environ.get('LOG_PATH'):
-    LOG_ROOT = os.environ.get('LOG_PATH')
+    LOG_PATH = os.environ.get('LOG_PATH')
 else:
     LOG_PATH = LOG_ROOT + "/esextract_" + datetime.datetime.now().strftime("%Y%m%d") + ".log"
 
