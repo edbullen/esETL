@@ -569,8 +569,7 @@ EXAMPLE - dump the config
                                )
 
     elif args["max_val"]:
-        print("running a select statement to select max val for" + args["searchkey"])
-        print(args["database_conf"])
+        
         maxval = maxval_from_db(args["searchkey"], args["database_conf"], args["key"], args["filter"], logPrintFlag=False )
         log(maxval, False)
         print(maxval)
